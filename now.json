@@ -1,0 +1,10 @@
+{
+  "build": {
+    "env": {
+      "BOT_TOKEN": "@nikls-awesome-bot-token"
+    }
+  },
+  "env": {
+    "BOT_TOKEN": "@nikls-awesome-bot-token"
+  }
+}

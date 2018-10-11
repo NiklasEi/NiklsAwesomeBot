@@ -1,0 +1,27 @@
+{
+  "name": "nikls-awesome-bot",
+  "version": "1.0.0",
+  "description": "Pure awesomeness",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NiklasEi/NiklsAwesomeBot.git"
+  },
+  "keywords": [
+    "telegram",
+    "bot"
+  ],
+  "author": "Niklas Eicker",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NiklasEi/NiklsAwesomeBot/issues"
+  },
+  "homepage": "https://github.com/NiklasEi/NiklsAwesomeBot#readme",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.30.0"
+  }
+}
