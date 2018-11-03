@@ -41,6 +41,15 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
     }
 });
 
+
+bot.onText( /\/start/, function( msg ) {
+    let fromId = msg.from.id;
+    let user = msg.from.first_name;
+    let response = "Hi there " + user + ",\n";
+    response += "Run /games for a list of available games.";
+    bot.sendMessage( fromId, response );
+});
+
 bot.onText( /\/games/, function( msg, match ) {
     let fromId = msg.from.id;
     let response = "You can play:";
@@ -60,6 +69,24 @@ bot.on( "callback_query", function( cq ) {
             bot.answerCallbackQuery( cq.id, "Sorry, '" + cq.game_short_name + "' is not available at the moment.", true );
         }
     }
+});
+
+bot.on( "inline_query", function(iq) {
+    console.log("Query ID: " + iq.id);
+    let reply_markup = {
+        inline_keyboard: [
+            [ { text: "Play", callback_game: JSON.stringify( { game_short_name: knownGames.minesweeper.game_short_name } ) } ]
+        ]
+    };
+    let results = [{type: "game", id: "0", game_short_name: knownGames.minesweeper.game_short_name/*, reply_markup: reply_markup}, {type: "game", id: "1", game_short_name: "minesweeper", reply_markup: reply_markup*/}];
+    let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "test", cache_time: "0"});
+
+    promise.then(function(result) {
+        console.log(result);
+    }, function(err) {
+        console.log(err);
+    });
+
 });
 
 function Game(game_short_name, name) {
