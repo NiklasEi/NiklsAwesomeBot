@@ -5,6 +5,7 @@
     }
   },
   "env": {
-    "BOT_TOKEN": "@nikls-awesome-bot-token"
+    "BOT_TOKEN": "@nikls-awesome-bot-token",
+    "GAMES_BASE_URL": "@nikls-games-base-url"
   }
 }
