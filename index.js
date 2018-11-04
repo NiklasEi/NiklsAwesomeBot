@@ -6,6 +6,7 @@ let TelegramBot = require( "node-telegram-bot-api" );
 let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.GAMES_BASE_URL;
+let botName = "NiklsAwesomeBot";
 
 const options = {
     webHook: {
@@ -18,20 +19,21 @@ bot.setWebHook(`${nowUrl}/bot${token}`);
 
 // games:
 const knownGames = {
-    "minesweeper": new Game("minesweeper", "Minesweeper")
-};
+    "minesweeper": new Game("minesweeper", "Minesweeper"),
+    "sudoku": new Game("sudoku", "Sudoku")};
 
 bot.onText( /\/play (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
-    if (knownGames.hasOwnProperty(match[1].toLowerCase())) {
+    let lowerCaseMatch = match[1].toLowerCase();
+    if (knownGames.hasOwnProperty(lowerCaseMatch)) {
         bot.sendGame(
             fromId,
             match[1].toLowerCase(),
             {
                 reply_markup: JSON.stringify({
                     inline_keyboard: [
-                        [ { text: "Play", callback_game: JSON.stringify( { game_short_name: match[1].toLowerCase() } ) } ],
-                        [ { text: "Share", url: "https://telegram.me/NiklsAwesomeBot?game=" + match[1].toLowerCase() } ]
+                        [ { text: "Play", callback_game: JSON.stringify( { game_short_name: lowerCaseMatch } ) } ],
+                        [ { text: "Share", url: "https://telegram.me/" + botName + "?game=" + lowerCaseMatch } ]
                     ]
                 })
             }
@@ -78,7 +80,11 @@ bot.on( "inline_query", function(iq) {
             [ { text: "Play", callback_game: JSON.stringify( { game_short_name: knownGames.minesweeper.game_short_name } ) } ]
         ]
     };
-    let results = [{type: "game", id: "0", game_short_name: knownGames.minesweeper.game_short_name/*, reply_markup: reply_markup}, {type: "game", id: "1", game_short_name: "minesweeper", reply_markup: reply_markup*/}];
+    let results = [];
+    for (let key in knownGames) {
+        if (!knownGames.hasOwnProperty(key)) continue;
+        results.push({type: "game", id: key, game_short_name: key});
+    }
     let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "test", cache_time: "0"});
 
     promise.then(function(result) {
