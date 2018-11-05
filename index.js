@@ -7,24 +7,20 @@ let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.GAMES_BASE_URL;
 let botName = "NiklsAwesomeBot";
-const port = process.env.PORT;
-
-const express = require("express");
-const path = require("path");
-const server = express();
-server.use("/games", express.static(path.join(__dirname, 'games')));
-server.listen(port);
-
-console.log("Serving static from: " + path.join(__dirname, 'games'));
 
 const options = {
     webHook: {
-        port: port
+        autoOpen: true,
+        port: 443
     }
 };
 
 const bot = new TelegramBot( token, options );
-bot.setWebHook(`${nowUrl}/bot${token}`);
+bot.setWebHook(`${nowUrl}/bot${token}`).then(function(result) {
+    console.log("Web hook result: " + result);
+}, function(err) {
+    console.log("Web hook error: " + err);
+});
 
 // games:
 const knownGames = {
@@ -106,7 +102,7 @@ bot.on( "inline_query", function(iq) {
 function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
-    this.url = nowUrl + "/games/" + game_short_name;
+    this.url = "https://" + game_short_name + "." + gamesBaseUrl;
     this.changeUrl = function (newUrl) {
         this.url = newUrl;
     }
