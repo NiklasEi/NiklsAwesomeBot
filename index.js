@@ -7,10 +7,19 @@ let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.GAMES_BASE_URL;
 let botName = "NiklsAwesomeBot";
+const port = process.env.PORT;
+
+const express = require("express");
+const path = require("path");
+const server = express();
+server.use("/games", express.static(path.join(__dirname, 'games')));
+server.listen(port);
+
+console.log("Serving static from: " + path.join(__dirname, 'games'));
 
 const options = {
     webHook: {
-        port: 443
+        port: port
     }
 };
 
@@ -20,7 +29,8 @@ bot.setWebHook(`${nowUrl}/bot${token}`);
 // games:
 const knownGames = {
     "minesweeper": new Game("minesweeper", "Minesweeper"),
-    "sudoku": new Game("sudoku", "Sudoku")};
+    "sudoku": new Game("sudoku", "Sudoku")
+};
 
 bot.onText( /\/play (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
@@ -74,31 +84,29 @@ bot.on( "callback_query", function( cq ) {
 });
 
 bot.on( "inline_query", function(iq) {
-    console.log("Query ID: " + iq.id);
-    let reply_markup = {
-        inline_keyboard: [
-            [ { text: "Play", callback_game: JSON.stringify( { game_short_name: knownGames.minesweeper.game_short_name } ) } ]
-        ]
-    };
     let results = [];
     for (let key in knownGames) {
         if (!knownGames.hasOwnProperty(key)) continue;
-        results.push({type: "game", id: key, game_short_name: key});
+        let reply_markup = {
+            inline_keyboard: [
+                [ { text: "Play", callback_game: JSON.stringify( { game_short_name: key } ) } ],
+                [ { text: "Share", url: "https://telegram.me/" + botName + "?game=" + key } ]
+            ]
+        };
+        results.push({type: "game", id: key, game_short_name: key, reply_markup: reply_markup});
     }
     let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "test", cache_time: "0"});
-
     promise.then(function(result) {
         console.log(result);
     }, function(err) {
         console.log(err);
     });
-
 });
 
 function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
-    this.url = "https://" + game_short_name + "." + gamesBaseUrl;
+    this.url = nowUrl + "/games/" + game_short_name;
     this.changeUrl = function (newUrl) {
         this.url = newUrl;
     }
