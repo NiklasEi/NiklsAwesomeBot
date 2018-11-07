@@ -63,13 +63,17 @@ bot.onText( /\/games/, function( msg, match ) {
     let response = "You can play:";
     for (let key in knownGames) {
         if (!knownGames.hasOwnProperty(key)) continue;
-        response += "\n" + knownGames[key].game_short_name;
+        response += "\n" + knownGames[key].name;
     }
     bot.sendMessage( fromId, response );
 });
 
 bot.on( "callback_query", function( cq ) {
     if ( cq.game_short_name ) {
+        let userID = cq.from.id;
+        let messageID = cq.message.message_id;
+        let chatID = cq.message.chat.id;
+        let inlineMessageID = cq.inline_message_id;
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
             console.log("answer query with: " + knownGames[cq.game_short_name.toLowerCase()].url);
             bot.answerCallbackQuery( cq.id, { url: knownGames[cq.game_short_name.toLowerCase()].url });
