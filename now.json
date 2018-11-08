@@ -1,4 +1,11 @@
 {
+  "version": 2,
+  "name": "NiklsAwesomeBot",
+  "builds": [
+    { "src": "package.json", "use": "@now/node" },
+    { "src": "games/**/*", "use": "@now/static" },
+    { "src": "assets/**/*", "use": "@now/static" }
+  ],
   "build": {
     "env": {
       "BOT_TOKEN": "@nikls-awesome-bot-token"
@@ -6,6 +13,8 @@
   },
   "env": {
     "BOT_TOKEN": "@nikls-awesome-bot-token",
-    "GAMES_BASE_URL": "@nikls-games-base-url"
-  }
+    "BASE_URL": "@nikls-base-url"
+  },
+  "regions": ["sfo1", "bru"],
+  "alias": ["@nikls-base-url", "games.nikl.me"]
 }

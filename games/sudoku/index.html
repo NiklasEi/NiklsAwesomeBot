@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8" />
+    <title id="title">Sudoku</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+        }
+        canvas {
+            display: block;
+            margin: auto 0;
+        }
+        #head {
+            height: 20px;
+            align-content: center;
+            text-align: center;
+            padding-top: 20px;
+        }
+        #timer {
+            align-content: center;
+            text-align: center;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div style="background-color: aqua">
+    <p id="head">Loading ...</p>
+    <p id="timer"></p>
+</div>
+<canvas id="myCanvas" oncontextmenu="return false;"></canvas>
+
+<script src="/games/sudoku/sudoku.js"></script>
+
+</body>
+</html>
