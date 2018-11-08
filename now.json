@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "build": {
     "env": {
       "BOT_TOKEN": "@nikls-awesome-bot-token"
@@ -6,6 +7,6 @@
   },
   "env": {
     "BOT_TOKEN": "@nikls-awesome-bot-token",
-    "GAMES_BASE_URL": "@nikls-games-base-url"
+    "BASE_URL": "@nikls-base-url"
   }
 }
