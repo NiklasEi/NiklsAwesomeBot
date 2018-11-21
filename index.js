@@ -58,13 +58,19 @@ bot.onText( /\/start/, function( msg ) {
     bot.sendMessage( fromId, response );
 });
 
-bot.onText( /\/games/, function( msg, match ) {
+bot.onText( /\/games/, function( msg ) {
     let fromId = msg.from.id;
     let response = "You can play:";
     for (let key in knownGames) {
         if (!knownGames.hasOwnProperty(key)) continue;
         response += "\n" + knownGames[key].name;
     }
+    bot.sendMessage( fromId, response );
+});
+
+bot.onText( /\/test/, function( msg ) {
+    let fromId = msg.from.id;
+    let response = "Test value: 1";
     bot.sendMessage( fromId, response );
 });
 
