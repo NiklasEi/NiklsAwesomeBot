@@ -7,11 +7,12 @@ let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.BASE_URL;
 let botName = "NiklsAwesomeBot";
+let port = process.env.PORT || 3000;
 
 const options = {
     webHook: {
         autoOpen: true,
-        port: 443
+        port: port
     }
 };
 
