@@ -64,7 +64,7 @@ bot.onText( /\/games/, function( msg ) {
     let response = "You can play:";
     for (let key in knownGames) {
         if (!knownGames.hasOwnProperty(key)) continue;
-        response += "\n" + knownGames[key].name;
+        response += "\n" + knownGames[key].name + " (/play " + key + ")";
     }
     bot.sendMessage( fromId, response );
 });

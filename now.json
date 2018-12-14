@@ -20,7 +20,7 @@
   "alias": ["@nikls-base-url", "games.nikl.me"],
   "routes": [
     { "src": "/(.*)", "dest": "index.js" },
-    {"src": "/games/", "dest": "/games/"},
-    {"src": "/assets/", "dest": "/assets/"}
+    { "src": "/games/", "dest": "/games/" },
+    { "src": "/assets/", "dest": "/assets/" }
   ]
 }
