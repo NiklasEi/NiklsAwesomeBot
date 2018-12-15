@@ -112,7 +112,7 @@ bot.on( "inline_query", function(iq) {
 function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
-    this.url = "https://" + gamesBaseUrl + "/games/" + game_short_name;
+    this.url = "https://" + gamesBaseUrl + "/" + game_short_name;
     this.changeUrl = function (newUrl) {
         this.url = newUrl;
     }
