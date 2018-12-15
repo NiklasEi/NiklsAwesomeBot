@@ -38,8 +38,8 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
             {
                 reply_markup: JSON.stringify({
                     inline_keyboard: [
-                        [ { text: "Play", callback_game: JSON.stringify( { game_short_name: lowerCaseMatch } ) } ],
-                        [ { text: "Share", url: "https://telegram.me/" + botName + "?game=" + lowerCaseMatch } ]
+                        [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: key } ) } ],
+                        [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + key } ]
                     ]
                 })
             }
@@ -68,18 +68,8 @@ bot.onText( /\/games/, function( msg ) {
     bot.sendMessage( fromId, response );
 });
 
-bot.onText( /\/test/, function( msg ) {
-    let fromId = msg.from.id;
-    let response = "Test value: 1";
-    bot.sendMessage( fromId, response );
-});
-
 bot.on( "callback_query", function( cq ) {
     if ( cq.game_short_name ) {
-        let userID = cq.from.id;
-        let messageID = cq.message.message_id;
-        let chatID = cq.message.chat.id;
-        let inlineMessageID = cq.inline_message_id;
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
             console.log("answer query with: " + knownGames[cq.game_short_name.toLowerCase()].url);
             bot.answerCallbackQuery( cq.id, { url: knownGames[cq.game_short_name.toLowerCase()].url });
@@ -95,8 +85,8 @@ bot.on( "inline_query", function(iq) {
         if (!knownGames.hasOwnProperty(key)) continue;
         let reply_markup = {
             inline_keyboard: [
-                [ { text: "Play", callback_game: JSON.stringify( { game_short_name: key } ) } ],
-                [ { text: "Share", url: "https://telegram.me/" + botName + "?game=" + key } ]
+                [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: key } ) } ],
+                [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + key } ]
             ]
         };
         results.push({type: "game", id: key, game_short_name: key, reply_markup: reply_markup});
@@ -113,7 +103,4 @@ function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
     this.url = "https://" + gamesBaseUrl + "/" + game_short_name;
-    this.changeUrl = function (newUrl) {
-        this.url = newUrl;
-    }
 }
