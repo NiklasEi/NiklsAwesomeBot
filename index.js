@@ -1,33 +1,35 @@
-const Promise = require('bluebird');
-Promise.config({
-    cancellation: true
-});
 let TelegramBot = require( "node-telegram-bot-api" );
 let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.BASE_URL;
 let botName = "NiklsAwesomeBot";
 
-const options = {
+// Enable automatic canceling of promises
+// See https://github.com/yagop/node-telegram-bot-api/issues/319
+const Promise = require('bluebird');
+Promise.config({
+    cancellation: true
+});
+
+const bot_options = {
     webHook: {
         autoOpen: true,
         port: 443
     }
 };
 
-const bot = new TelegramBot( token, options );
+const bot = new TelegramBot( token, bot_options );
 bot.setWebHook(`${nowUrl}/bot${token}`).then(function(result) {
     console.log("Web hook result: " + result);
 }, function(err) {
     console.log("Web hook error: " + err);
 });
 
-// games:
+// all served games are defined here
 const knownGames = {
     "minesweeper": new Game("minesweeper", "Minesweeper"),
     "sudoku": new Game("sudoku", "Sudoku")
 };
-
 
 // define internal bot constants:
 const games_inline_keyboard_name_prefix = "🎮";
