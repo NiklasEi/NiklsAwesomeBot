@@ -28,8 +28,12 @@ bot.setWebHook(`${nowUrl}/bot${token}`).then(function(result) {
 // all served games are defined here
 const knownGames = {
     "minesweeper": new Game("minesweeper", "Minesweeper"),
-    "sudoku": new Game("sudoku", "Sudoku")
+    "sudoku": new Game("sudoku", "Sudoku"),
+    "chess": new Game("chess", "Chess")
 };
+
+// chess is a special case for the moment
+knownGames.chess.changeURL("https://chess.nikl.me");
 
 // define internal bot constants:
 const games_inline_keyboard_name_prefix = "🎮";
@@ -72,8 +76,8 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
             {
                 reply_markup: JSON.stringify({
                     inline_keyboard: [
-                        [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: key } ) } ],
-                        [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + key } ]
+                        [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: lowerCaseMatch } ) } ],
+                        [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + lowerCaseMatch } ]
                     ]
                 })
             }
@@ -121,8 +125,12 @@ bot.onText( /\/games/, function( msg ) {
 bot.on( "callback_query", function( cq ) {
     if ( cq.game_short_name ) {
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
-            console.log("answer query with: " + knownGames[cq.game_short_name.toLowerCase()].url);
-            bot.answerCallbackQuery( cq.id, { url: knownGames[cq.game_short_name.toLowerCase()].url }).then();
+            let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
+            if (cq.game_short_name.toLowerCase() === "chess") {
+                gameURL += "/?game=" + cq.chat_instance + "&player=" + cq.from.id;
+            }
+            console.log("answer query with: " + gameURL);
+            bot.answerCallbackQuery( cq.id, { url: gameURL }).then();
         } else {
             bot.answerCallbackQuery( cq.id, "Sorry, '" + cq.game_short_name + "' is not available at the moment.", true ).then();
         }
@@ -154,4 +162,7 @@ function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
     this.url = "https://" + gamesBaseUrl + "/" + game_short_name;
+    this.changeURL = function (newURL) {
+        this.url = newURL;
+    }
 }
