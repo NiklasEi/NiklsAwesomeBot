@@ -3,6 +3,7 @@ let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.BASE_URL;
 let botName = "NiklsAwesomeBot";
+const crypto = require("crypto");
 
 // Enable automatic canceling of promises
 // See https://github.com/yagop/node-telegram-bot-api/issues/319
@@ -127,7 +128,7 @@ bot.on( "callback_query", function( cq ) {
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
             let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
             if (cq.game_short_name.toLowerCase() === "chess") {
-                gameURL += "/?game=" + cq.chat_instance + "&player=" + cq.from.id;
+                gameURL += "/?game=" + cq.chat_instance + "&player=" + getHash(cq.from.id);
             }
             console.log("answer query with: " + gameURL);
             bot.answerCallbackQuery( cq.id, { url: gameURL }).then();
@@ -165,4 +166,10 @@ function Game(game_short_name, name) {
     this.changeURL = function (newURL) {
         this.url = newURL;
     }
+}
+
+function getHash(id) {
+    return crypto.createHash('sha256')
+        .update(id.toString())
+        .digest('hex');
 }
