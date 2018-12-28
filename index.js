@@ -1,16 +1,18 @@
-let TelegramBot = require( "node-telegram-bot-api" );
-let token = process.env.BOT_TOKEN;
-let nowUrl = process.env.NOW_URL;
-let gamesBaseUrl = process.env.BASE_URL;
-let botName = "NiklsAwesomeBot";
-const crypto = require("crypto");
-
 // Enable automatic canceling of promises
 // See https://github.com/yagop/node-telegram-bot-api/issues/319
 const Promise = require('bluebird');
 Promise.config({
     cancellation: true
 });
+// remove annoying deprecation message
+process.env.NTBA_FIX_319 = true;
+
+let TelegramBot = require( "node-telegram-bot-api" );
+let token = process.env.BOT_TOKEN;
+let nowUrl = process.env.NOW_URL;
+let gamesBaseUrl = process.env.BASE_URL;
+let botName = "NiklsAwesomeBot";
+const crypto = require("crypto");
 
 const bot_options = {
     webHook: {
