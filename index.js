@@ -7,6 +7,7 @@ Promise.config({
 // remove annoying deprecation message
 process.env.NTBA_FIX_319 = true;
 
+const chessServerToken = process.env.CHESS_SERVER_TOKEN;
 let TelegramBot = require( "node-telegram-bot-api" );
 const debug = require('debug')('node-telegram-bot-api');
 const https = require('https');
@@ -28,9 +29,24 @@ require("node-telegram-bot-api/src/telegramWebHook").prototype._requestListener 
                 .pipe(bl(this._parseBody))
                 .on('finish', () => res.end('OK'));
         }
-    } else if (req.url.indexOf("test") !== -1) {
-        res.statusCode = 200;
-        res.end('OK');
+    } else if (req.url.indexOf(chessServerToken) !== -1) {
+        if (req.method !== 'POST') {
+            res.statusCode = 418; // I'm a teabot!
+            res.end();
+        } else {
+            req
+                .pipe(bl(chessPost))
+                .on('finish', () => res.end('OK'));
+        }
+    } else if (req.url.indexOf("setgamescore") !== -1) {
+        if (req.method !== 'POST') {
+            res.statusCode = 418; // I'm a teabot!
+            res.end();
+        } else {
+            req
+                .pipe(bl(highScorePost))
+                .on('finish', () => res.end('OK'));
+        }
     } else if (this._healthRegex.test(req.url)) {
         debug('WebHook health check passed');
         res.statusCode = 200;
@@ -102,7 +118,7 @@ for(const gameID in knownGames) {
 /*
     bot internals
  */
-
+const queries = {};
 bot.onText( /\/play (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
     let lowerCaseMatch = match[1].toLowerCase();
@@ -162,12 +178,14 @@ bot.onText( /\/games/, function( msg ) {
 bot.on( "callback_query", function( cq ) {
     if ( cq.game_short_name ) {
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
+            let idHash = getHash(cq.from.id);
             let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
+            gameURL += "/?player=" + idHash;
             if (cq.game_short_name.toLowerCase() === "chess") {
-                gameURL += "/?game=" + cq.chat_instance + "&player=" + getHash(cq.from.id);
+                gameURL += "&game=" + cq.chat_instance;
             }
-            console.log("answer query with: " + gameURL);
             bot.answerCallbackQuery( cq.id, { url: gameURL }).then();
+            queries[idHash] = cq;
         } else {
             bot.answerCallbackQuery( cq.id, "Sorry, '" + cq.game_short_name + "' is not available at the moment.", true ).then();
         }
@@ -208,4 +226,91 @@ function getHash(id) {
     return crypto.createHash('sha256')
         .update(id.toString())
         .digest('hex');
+}
+
+// ToDo: instead of sending scores, post a bot message in the chat announcing the victory / draw
+function chessPost(error, body) {
+    if (error) {
+        console.error(error);
+        return;
+    }
+    let data;
+    try {
+        data = JSON.parse(body.toString());
+    } catch (parseError) {
+        console.error(parseError);
+        return;
+    }
+    if (!data) return;
+    const highScore = data.high_score;
+    const idHash = data.id_hash;
+
+    let query = queries[idHash];
+    let options;
+    if (query.message) {
+        options = {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id
+        };
+    } else {
+        options = {
+            inline_message_id: query.inline_message_id
+        };
+    }
+    bot.setGameScore(query.from.id, parseInt(highScore),  options).then( value => {
+        // everything fine
+    }, reason => {
+        if(reason.Error && reason.Error.indexOf("BOT_SCORE_NOT_MODIFIED") !== -1) {
+            // ignore: the new score is simply lower then the old one
+            return;
+        }
+        console.log("Error while updating high score:");
+        console.error(reason);
+    });
+}
+
+function highScorePost(error, body) {
+    if (error) {
+        console.error(error);
+        return;
+    }
+    if(!body) return;
+    let data;
+    try {
+        data = JSON.parse(body.toString());
+    } catch (parseError) {
+        console.error(parseError);
+        return;
+    }
+    const highScore = data.high_score;
+    const idHash = data.id_hash;
+
+    let query = queries[idHash];
+    // make sure no one tries to send a chess high score through this open endpoint
+    if(query.game_short_name === "chess") {
+        console.log("Someone tried to fake a chess score ^^ ", query);
+        return;
+    }
+    let options;
+    if (query.message) {
+        options = {
+            chat_id: parseInt(query.message.chat.id),
+            message_id: parseInt(query.message.message_id)
+        };
+    } else {
+        options = {
+            inline_message_id: query.inline_message_id
+        };
+    }
+    console.log("Sending high score of ", parseInt(highScore), " from ", query.from.id, " with options ", options);
+    bot.setGameScore(query.from.id, parseInt(highScore),  options).then( value => {
+        // everything fine
+    }, reason => {
+        if(reason.Error && reason.Error.indexOf("BOT_SCORE_NOT_MODIFIED") !== -1) {
+            // ignore: the new score is simply lower then the old one
+            return;
+        }
+        console.log("Error while updating high score:");
+        console.error(reason);
+    });
 }
