@@ -18,12 +18,16 @@ const bot_options = {
     }
 };
 
+const Database = require('./database.js');
+const database = new Database();
+
 const bot = new TelegramBot( token, bot_options );
 bot.setWebHook(`${nowUrl}/bot${token}`).then(function(result) {
     console.log("Web hook result: " + result);
 }, function(err) {
     console.log("Web hook error: " + err);
 });
+
 
 // all served games are defined here
 const knownGames = {
@@ -92,6 +96,7 @@ bot.onText( /\/start/, function( msg ) {
     let fromId = msg.from.id;
     let user = msg.from.first_name;
     let response = "Hi there " + user + ",\n";
+    database.addUser(msg.from.id);
     response += "Run /games to see all available games";
     bot.sendMessage( fromId, response ).then();
 });
@@ -127,7 +132,7 @@ bot.on( "callback_query", function( cq ) {
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
             let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
             if (cq.game_short_name.toLowerCase() === "chess") {
-                gameURL += "/?game=" + cq.chat_instance + "&player=" + cq.from.id;
+                gameURL += "/?game=" + cq.chat_instance + "&player=" + database.getHashForUser(cq.from.id);
             }
             console.log("answer query with: " + gameURL);
             bot.answerCallbackQuery( cq.id, { url: gameURL }).then();

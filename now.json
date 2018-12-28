@@ -2,7 +2,13 @@
   "version": 1,
   "build": {
     "env": {
-      "BOT_TOKEN": "@nikls-awesome-bot-token"
+      "BOT_TOKEN": "@nikls-awesome-bot-token",
+      "PGUSER": "@dbuser",
+      "PGHOST": "@dbhost",
+      "PGPASSWORD": "@dbpassword",
+      "PGDATABASE": "@database",
+      "PGPORT": "@dbport",
+      "PGSSLMODE": "require"
     }
   },
   "env": {

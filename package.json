@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/NiklasEi/NiklsAwesomeBot#readme",
   "dependencies": {
-    "node-telegram-bot-api": "^0.30.0"
+    "node-telegram-bot-api": "^0.30.0",
+    "pg": "^7.7.1"
   }
 }
