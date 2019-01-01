@@ -118,7 +118,22 @@ for(const gameID in knownGames) {
 /*
     bot internals
  */
+function createGameReplyMarkup(gameID, forID) {
+    let reply_markup = {
+        inline_keyboard: [
+            [ { text: "Play 🎮" , callback_game: JSON.stringify( { game_short_name: gameID} )} ],
+            [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + gameID } ]
+        ]
+    };
+    if(gameID === 'chess') {
+        reply_markup.inline_keyboard
+            .push([ { text: "New match 👥", switch_inline_query: "chess:" + createChessInviteToken(forID)} ]);
+    }
+    return reply_markup;
+}
+
 const queries = {};
+const chessInvitations = {};
 bot.onText( /\/play (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
     let lowerCaseMatch = match[1].toLowerCase();
@@ -127,12 +142,7 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
             fromId,
             match[1].toLowerCase(),
             {
-                reply_markup: JSON.stringify({
-                    inline_keyboard: [
-                        [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: lowerCaseMatch } ) } ],
-                        [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + lowerCaseMatch } ]
-                    ]
-                })
+                reply_markup: JSON.stringify(createGameReplyMarkup(lowerCaseMatch, fromId))
             }
         ).then();
     } else {
@@ -140,12 +150,12 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
     }
 });
 
-
-bot.onText( /\/start/, function( msg ) {
+bot.onText( /\/start (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
     let user = msg.from.first_name;
     let response = "Hi there " + user + ",\n";
     response += "Run /games to see all available games";
+    if(match[1]) response += "\nGot param: " + match[1];
     bot.sendMessage( fromId, response ).then();
 });
 
@@ -156,12 +166,7 @@ bot.onText( /🎮 (.+)/, function( msg, match ) {
         msg.from.id,
         game_short_name,
         {
-            reply_markup: JSON.stringify({
-                inline_keyboard: [
-                    [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: game_short_name } ) } ],
-                    [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + game_short_name } ]
-                ]
-            })
+            reply_markup: JSON.stringify(createGameReplyMarkup(game_short_name, msg.from.id))
         }
     ).then();
 });
@@ -176,6 +181,7 @@ bot.onText( /\/games/, function( msg ) {
 });
 
 bot.on( "callback_query", function( cq ) {
+    console.log(cq);
     if ( cq.game_short_name ) {
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
             let idHash = getHash(cq.from.id);
@@ -192,25 +198,54 @@ bot.on( "callback_query", function( cq ) {
     }
 });
 
+// Listen for any kind of message. There are different kinds of
+// messages.
+bot.on('message', (msg) => {
+    const chatId = msg.chat.id;
+    console.log(msg);
+
+    // send a message to the chat acknowledging receipt of their message
+    bot.sendMessage(chatId, 'Received your message');
+});
+
 bot.on( "inline_query", function(iq) {
     let results = [];
+    if(isChessInviteQuery(iq)) {
+        sendChessInvite(iq);
+        return;
+    }
     for (let key in knownGames) {
         if (!knownGames.hasOwnProperty(key)) continue;
-        let reply_markup = {
-            inline_keyboard: [
-                [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: key } ) } ],
-                [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + key } ]
-            ]
-        };
-        results.push({type: "game", id: key, game_short_name: key, reply_markup: reply_markup});
+        results.push({type: "game", id: key, game_short_name: key, reply_markup: createGameReplyMarkup(key, iq.from.id)});
     }
     let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "test", cache_time: "0"});
     promise.then(function(result) {
-        console.log(result);
+        // fine
     }, function(err) {
         console.log(err);
     });
 });
+
+function isChessInviteQuery(iq) {
+    if(iq.query.indexOf("chess:") === -1) return false;
+    return createChessInviteToken(iq.from.id) === iq.query.replace("chess:", "");
+}
+
+function sendChessInvite(iq) {
+    let reply_markup = {
+        inline_keyboard: [
+            [ { text: "Accept" , callback_data: "chess:" + iq.from.id + " Y"} ],
+            [ { text: "Decline", callback_data: "chess:" + iq.from.id + " N"} ]
+        ]
+    };
+    // chess gif file_id: CgADBAADmQADl1NdUbrv7JZGF-G0Ag
+    bot.answerInlineQuery(iq.id, [{type: 'article', id: 1
+            , title: "Offer chess match"
+            , reply_markup: reply_markup
+            , description: iq.from.first_name + " invited you to a round of chess"
+            , input_message_content: {message_text: "input ***message*** here", parse_mode: "Markdown"}}]
+        , {cache_time: 0}).then();
+}
 
 // game constructor
 function Game(game_short_name, name) {
@@ -225,6 +260,12 @@ function Game(game_short_name, name) {
 function getHash(id) {
     return crypto.createHash('sha256')
         .update(id.toString())
+        .digest('hex');
+}
+
+function createChessInviteToken(playerID) {
+    return crypto.createHmac('sha256', chessServerToken)
+        .update(playerID.toString())
         .digest('hex');
 }
 
