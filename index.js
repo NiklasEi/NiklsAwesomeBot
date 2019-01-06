@@ -131,7 +131,7 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
             fromId,
             match[1].toLowerCase(),
             {
-                reply_markup: JSON.stringify(createGameReplyMarkup(lowerCaseMatch, fromId))
+                reply_markup: JSON.stringify(createGameReplyMarkup(lowerCaseMatch))
             }
         ).then();
     } else {
@@ -155,7 +155,7 @@ bot.onText( /🎮 (.+)/, function( msg, match ) {
         msg.from.id,
         game_short_name,
         {
-            reply_markup: JSON.stringify(createGameReplyMarkup(game_short_name, msg.from.id))
+            reply_markup: JSON.stringify(createGameReplyMarkup(game_short_name))
         }
     ).then();
 });
@@ -169,6 +169,7 @@ bot.onText( /\/games/, function( msg ) {
     ).then();
 });
 
+joinChessMatchButtons = {};
 bot.on( "callback_query", function( cq ) {
     console.log(cq);
     if ( cq.game_short_name ) {
@@ -176,8 +177,8 @@ bot.on( "callback_query", function( cq ) {
             let idHash = getHash(cq.from.id);
             let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
             gameURL += "/?player=" + idHash;
-            if (cq.game_short_name.toLowerCase() === "chess") {
-                gameURL += "&game=" + cq.chat_instance;
+            if (cq.game_short_name.toLowerCase() === "chess" && cq.message.reply_to_message && joinChessMatchButtons[cq.message.reply_to_message.message_id]) {
+                gameURL += "&game=" + joinChessMatchButtons[cq.message.reply_to_message.message_id].id;
             }
             bot.answerCallbackQuery( cq.id, { url: gameURL }).then();
             queries[idHash] = cq;
@@ -192,6 +193,19 @@ bot.on( "callback_query", function( cq ) {
             return;
         }
         if (data[1] === "accept") {
+            bot.answerCallbackQuery( cq.id, {}).then();
+            let messageContext = {
+                parse_mode: "Markdown"
+            };
+            if (cq.inline_message_id) {
+                messageContext.inline_message_id = cq.inline_message_id;
+            } else {
+                messageContext.chat_id = cq.message.chat.id;
+                messageContext.message_id = cq.message.message_id;
+            }
+            if (cq.chat_instance) {
+                messageContext.chat_instance = cq.chat_instance;
+            }
             let gameData = {
                 first_player: data[2],
                 second_player: cq.from.id
@@ -203,11 +217,48 @@ bot.on( "callback_query", function( cq ) {
                         return console.error('Post failed:', err);
                     }
                     console.log('Post successful!  Server responded with:', body);
+                    // replace inline button
+                    let reply_markup = JSON.stringify({
+                        inline_keyboard: [[{ text: "Share chess match", callback_data: "chess:game:" + body.id}]]
+                    });
+                    bot.sendMessage(messageContext.chat_instance, "**" + cq.from.first_name + `** accepted the challenge. May the force be with you!
+                    
+Share the match below ⬇ to get a "Play" button that takes you directly to it️. Good luck!
+                    `, {parse_mode: "Markdown", reply_markup: reply_markup}).then( (result) => {}, (err) => {console.log(err);});
                 }
             );
+        } else if (data[1] === "game") {
+            bot.answerCallbackQuery( cq.id, {}).then();
+            joinChessMatchButtons[cq.message.message_id] = data[2];
+            bot.sendGame(
+                cq.message.chat.id,
+                data[0],
+                {
+                    reply_to_message_id: cq.message.message_id,
+                    reply_markup: JSON.stringify(createGameReplyMarkup(data[0]))
+                }
+            ).then(function(result) {
+                // fine
+            }, function(err) {
+                console.log(err);
+            });
         }
     }
 });
+
+function sendChessMatch(result) {
+    console.log(result);
+    console.log("this: ", this);
+    joinChessMatchButtons[this.message_id] = this;
+    bot.sendGame(
+        this.chat_id,
+        "chess",
+        {
+            reply_to_message_id: this.message_id,
+            reply_markup: JSON.stringify(createGameReplyMarkup("chess"))
+        }
+    ).then();
+}
 
 // ToDo: a bot should answer on everything!
 /*bot.on('message', (msg) => {
@@ -245,7 +296,7 @@ function createGameReplyMarkup(gameID) {
     let reply_markup = {
         inline_keyboard: [
             [ { text: "Play 🎮" , callback_game: JSON.stringify( { game_short_name: gameID} )} ],
-            [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + gameID } ]
+            [ { text: "Share 🗣", switch_inline_query: gameID } ]
         ]
     };
     if(gameID === 'chess') {
@@ -261,9 +312,11 @@ function buildChessInviteIQresult(invitingPlayer) {
             [ { text: "Accept" , callback_data: "chess:accept:" + invitingPlayer.id} ]
         ]
     };
+    // chess gif file_id: CgADBAADmQADl1NdUbrv7JZGF-G0Ag
     return {type: 'article', id: 1
         , title: "Offer chess match"
         , reply_markup: reply_markup
+        , thumb_url: "https://chess.nikl.me/assets/img/chesspieces/wikipedia/wK.png"
         , description: "Ask anyone in this chat to play a round of chess against you"
         , input_message_content: {message_text: "**" + invitingPlayer.first_name + "** would like to play a round of chess against you. Do you think you can win?", parse_mode: "Markdown"}
     }
@@ -273,7 +326,7 @@ function buildChessInviteIQresult(invitingPlayer) {
 function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
-    this.url = "https://" + gamesBaseUrl + "/" + game_short_name;
+    this.url = gamesBaseUrl + "/" + game_short_name;
     this.changeURL = function (newURL) {
         this.url = newURL;
     }
