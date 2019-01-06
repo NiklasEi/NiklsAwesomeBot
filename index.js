@@ -14,6 +14,7 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const bl = require('bl');
+const request = require('request');
 // overwrite web hook to add my own api...
 require("node-telegram-bot-api/src/telegramWebHook").prototype._requestListener = function(req, res) {
     debug('WebHook request URL: %s', req.url);
@@ -118,6 +119,9 @@ for(const gameID in knownGames) {
 /*
     bot internals
  */
+
+const inlineQueryResults = {};
+fillInlineQueryResults();
 const queries = {};
 bot.onText( /\/play (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
@@ -127,12 +131,7 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
             fromId,
             match[1].toLowerCase(),
             {
-                reply_markup: JSON.stringify({
-                    inline_keyboard: [
-                        [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: lowerCaseMatch } ) } ],
-                        [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + lowerCaseMatch } ]
-                    ]
-                })
+                reply_markup: JSON.stringify(createGameReplyMarkup(lowerCaseMatch, fromId))
             }
         ).then();
     } else {
@@ -140,12 +139,12 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
     }
 });
 
-
-bot.onText( /\/start/, function( msg ) {
+bot.onText( /\/start (.+)/, function( msg, match ) {
     let fromId = msg.from.id;
     let user = msg.from.first_name;
     let response = "Hi there " + user + ",\n";
     response += "Run /games to see all available games";
+    if(match[1]) response += "\nGot param: " + match[1];
     bot.sendMessage( fromId, response ).then();
 });
 
@@ -156,12 +155,7 @@ bot.onText( /🎮 (.+)/, function( msg, match ) {
         msg.from.id,
         game_short_name,
         {
-            reply_markup: JSON.stringify({
-                inline_keyboard: [
-                    [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: game_short_name } ) } ],
-                    [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + game_short_name } ]
-                ]
-            })
+            reply_markup: JSON.stringify(createGameReplyMarkup(game_short_name, msg.from.id))
         }
     ).then();
 });
@@ -176,6 +170,7 @@ bot.onText( /\/games/, function( msg ) {
 });
 
 bot.on( "callback_query", function( cq ) {
+    console.log(cq);
     if ( cq.game_short_name ) {
         if (knownGames.hasOwnProperty(cq.game_short_name.toLowerCase())) {
             let idHash = getHash(cq.from.id);
@@ -189,28 +184,90 @@ bot.on( "callback_query", function( cq ) {
         } else {
             bot.answerCallbackQuery( cq.id, "Sorry, '" + cq.game_short_name + "' is not available at the moment.", true ).then();
         }
+    } else if(cq.data.indexOf("chess:") !== -1) {
+        let data = cq.data.split(":");
+        if (data.length !== 3) {
+            console.log("invalid callback query: ", cq);
+            bot.answerCallbackQuery( cq.id, "Invalid", true ).then();
+            return;
+        }
+        if (data[1] === "accept") {
+            let gameData = {
+                first_player: data[2],
+                second_player: cq.from.id
+            };
+            request.post(
+                {url:'https://chess.nikl.me/' + chessServerToken + '/newMatch', json: gameData},
+                function callback(err, httpResponse, body) {
+                    if (err) {
+                        return console.error('Post failed:', err);
+                    }
+                    console.log('Post successful!  Server responded with:', body);
+                }
+            );
+        }
     }
 });
 
+// ToDo: a bot should answer on everything!
+/*bot.on('message', (msg) => {
+    const chatId = msg.chat.id;
+    console.log(msg);
+
+    // send a message to the chat acknowledging receipt of their message
+    bot.sendMessage(chatId, 'Received your message');
+});*/
+
 bot.on( "inline_query", function(iq) {
     let results = [];
-    for (let key in knownGames) {
-        if (!knownGames.hasOwnProperty(key)) continue;
-        let reply_markup = {
-            inline_keyboard: [
-                [ { text: "Play 🎮", callback_game: JSON.stringify( { game_short_name: key } ) } ],
-                [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + key } ]
-            ]
-        };
-        results.push({type: "game", id: key, game_short_name: key, reply_markup: reply_markup});
+    for (let key in inlineQueryResults) {
+        if (!inlineQueryResults.hasOwnProperty(key)) continue;
+        results.push(inlineQueryResults[key]);
     }
-    let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "test", cache_time: "0"});
+    results.push(buildChessInviteIQresult(iq.from));
+    let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "inline_query", cache_time: "60", is_personal: true});
     promise.then(function(result) {
-        console.log(result);
+        // fine
     }, function(err) {
         console.log(err);
     });
 });
+
+function fillInlineQueryResults() {
+    // game results
+    for (let key in knownGames) {
+        if (!knownGames.hasOwnProperty(key)) continue;
+        inlineQueryResults[key] = {type: "game", id: key, game_short_name: key, reply_markup: createGameReplyMarkup(key)};
+    }
+}
+
+function createGameReplyMarkup(gameID) {
+    let reply_markup = {
+        inline_keyboard: [
+            [ { text: "Play 🎮" , callback_game: JSON.stringify( { game_short_name: gameID} )} ],
+            [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + gameID } ]
+        ]
+    };
+    if(gameID === 'chess') {
+        reply_markup.inline_keyboard[0]
+            .push({ text: "New match 👥", switch_inline_query: "chess:new"});
+    }
+    return reply_markup;
+}
+
+function buildChessInviteIQresult(invitingPlayer) {
+    let reply_markup = {
+        inline_keyboard: [
+            [ { text: "Accept" , callback_data: "chess:accept:" + invitingPlayer.id} ]
+        ]
+    };
+    return {type: 'article', id: 1
+        , title: "Offer chess match"
+        , reply_markup: reply_markup
+        , description: "Ask anyone in this chat to play a round of chess against you"
+        , input_message_content: {message_text: "**" + invitingPlayer.first_name + "** would like to play a round of chess against you. Do you think you can win?", parse_mode: "Markdown"}
+    }
+}
 
 // game constructor
 function Game(game_short_name, name) {
@@ -225,6 +282,14 @@ function Game(game_short_name, name) {
 function getHash(id) {
     return crypto.createHash('sha256')
         .update(id.toString())
+        .digest('hex');
+}
+
+// for message verification between bot and chess server
+// ToDo: not needed due to API path with token?
+function createChessHmac(message) {
+    return crypto.createHmac('sha256', chessServerToken)
+        .update(message.toString())
         .digest('hex');
 }
 
