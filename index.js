@@ -9,6 +9,7 @@ process.env.NTBA_FIX_319 = true;
 
 const chessServerToken = process.env.CHESS_SERVER_TOKEN;
 let TelegramBot = require( "node-telegram-bot-api" );
+const crypto = require("crypto");
 const debug = require('debug')('node-telegram-bot-api');
 const https = require('https');
 const http = require('http');
@@ -62,8 +63,10 @@ require("node-telegram-bot-api/src/telegramWebHook").prototype._requestListener 
 let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.BASE_URL;
-let botName = "NiklsAwesomeBot";
-const crypto = require("crypto");
+let chessMatchChallengeAccepted =
+`**{name}** accepted the challenge. May the force be with you!
+
+Good luck!`;
 
 const bot_options = {
     webHook: {
@@ -131,7 +134,7 @@ bot.onText( /\/play (.+)/, function( msg, match ) {
             fromId,
             match[1].toLowerCase(),
             {
-                reply_markup: JSON.stringify(createGameReplyMarkup(lowerCaseMatch, fromId))
+                reply_markup: JSON.stringify(createGameReplyMarkup(lowerCaseMatch))
             }
         ).then();
     } else {
@@ -155,7 +158,7 @@ bot.onText( /🎮 (.+)/, function( msg, match ) {
         msg.from.id,
         game_short_name,
         {
-            reply_markup: JSON.stringify(createGameReplyMarkup(game_short_name, msg.from.id))
+            reply_markup: JSON.stringify(createGameReplyMarkup(game_short_name))
         }
     ).then();
 });
@@ -176,9 +179,6 @@ bot.on( "callback_query", function( cq ) {
             let idHash = getHash(cq.from.id);
             let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
             gameURL += "/?player=" + idHash;
-            if (cq.game_short_name.toLowerCase() === "chess") {
-                gameURL += "&game=" + cq.chat_instance;
-            }
             bot.answerCallbackQuery( cq.id, { url: gameURL }).then();
             queries[idHash] = cq;
         } else {
@@ -192,17 +192,40 @@ bot.on( "callback_query", function( cq ) {
             return;
         }
         if (data[1] === "accept") {
+            bot.answerCallbackQuery(cq.id, {}).then();
+            let messageContext = {
+                parse_mode: "Markdown"
+            };
+            if (cq.inline_message_id) {
+                messageContext.inline_message_id = cq.inline_message_id;
+            } else {
+                messageContext.chat_id = cq.message.chat.id;
+                messageContext.message_id = cq.message.message_id;
+            }
+            if (cq.chat_instance) {
+                messageContext.chat_instance = cq.chat_instance;
+            }
             let gameData = {
                 first_player: data[2],
                 second_player: cq.from.id
             };
             request.post(
-                {url:'https://chess.nikl.me/' + chessServerToken + '/newMatch', json: gameData},
+                {url: 'https://chess.nikl.me/' + chessServerToken + '/newMatch', json: gameData},
                 function callback(err, httpResponse, body) {
                     if (err) {
                         return console.error('Post failed:', err);
                     }
                     console.log('Post successful!  Server responded with:', body);
+                    // replace inline button
+                    let reply_markup = JSON.stringify({
+                        inline_keyboard: [[{text: "Share Chess 🗣", switch_inline_query: "chess"}]]
+                    });
+                    messageContext.reply_markup = reply_markup;
+                    bot.editMessageText(chessMatchChallengeAccepted.replace("{name}", cq.from.first_name)
+                        , messageContext).then((result) => {
+                    }, (err) => {
+                        console.log(err);
+                    });
                 }
             );
         }
@@ -224,7 +247,7 @@ bot.on( "inline_query", function(iq) {
         if (!inlineQueryResults.hasOwnProperty(key)) continue;
         results.push(inlineQueryResults[key]);
     }
-    results.push(buildChessInviteIQresult(iq.from));
+    results.push(buildChessInviteIQResult(iq.from));
     let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "inline_query", cache_time: "60", is_personal: true});
     promise.then(function(result) {
         // fine
@@ -245,7 +268,7 @@ function createGameReplyMarkup(gameID) {
     let reply_markup = {
         inline_keyboard: [
             [ { text: "Play 🎮" , callback_game: JSON.stringify( { game_short_name: gameID} )} ],
-            [ { text: "Share 🗣", url: "https://telegram.me/" + botName + "?game=" + gameID } ]
+            [ { text: "Share 🗣", switch_inline_query: gameID } ]
         ]
     };
     if(gameID === 'chess') {
@@ -255,15 +278,17 @@ function createGameReplyMarkup(gameID) {
     return reply_markup;
 }
 
-function buildChessInviteIQresult(invitingPlayer) {
+function buildChessInviteIQResult(invitingPlayer) {
     let reply_markup = {
         inline_keyboard: [
             [ { text: "Accept" , callback_data: "chess:accept:" + invitingPlayer.id} ]
         ]
     };
+    // chess gif file_id: CgADBAADmQADl1NdUbrv7JZGF-G0Ag
     return {type: 'article', id: 1
         , title: "Offer chess match"
         , reply_markup: reply_markup
+        , thumb_url: "https://chess.nikl.me/assets/img/chesspieces/wikipedia/wK.png"
         , description: "Ask anyone in this chat to play a round of chess against you"
         , input_message_content: {message_text: "**" + invitingPlayer.first_name + "** would like to play a round of chess against you. Do you think you can win?", parse_mode: "Markdown"}
     }
@@ -273,7 +298,7 @@ function buildChessInviteIQresult(invitingPlayer) {
 function Game(game_short_name, name) {
     this.game_short_name = game_short_name;
     this.name = name;
-    this.url = "https://" + gamesBaseUrl + "/" + game_short_name;
+    this.url = gamesBaseUrl + "/" + game_short_name;
     this.changeURL = function (newURL) {
         this.url = newURL;
     }
