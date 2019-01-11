@@ -9,6 +9,7 @@ process.env.NTBA_FIX_319 = true;
 
 const chessServerToken = process.env.CHESS_SERVER_TOKEN;
 let TelegramBot = require( "node-telegram-bot-api" );
+const crypto = require("crypto");
 const debug = require('debug')('node-telegram-bot-api');
 const https = require('https');
 const http = require('http');
@@ -62,8 +63,10 @@ require("node-telegram-bot-api/src/telegramWebHook").prototype._requestListener 
 let token = process.env.BOT_TOKEN;
 let nowUrl = process.env.NOW_URL;
 let gamesBaseUrl = process.env.BASE_URL;
-let botName = "NiklsAwesomeBot";
-const crypto = require("crypto");
+let chessMatchChallengeAccepted =
+`**{name}** accepted the challenge. May the force be with you!
+
+Good luck!`;
 
 const bot_options = {
     webHook: {
@@ -169,7 +172,6 @@ bot.onText( /\/games/, function( msg ) {
     ).then();
 });
 
-joinChessMatchButtons = {};
 bot.on( "callback_query", function( cq ) {
     console.log(cq);
     if ( cq.game_short_name ) {
@@ -177,9 +179,6 @@ bot.on( "callback_query", function( cq ) {
             let idHash = getHash(cq.from.id);
             let gameURL = knownGames[cq.game_short_name.toLowerCase()].url;
             gameURL += "/?player=" + idHash;
-            if (cq.game_short_name.toLowerCase() === "chess" && cq.message.reply_to_message && joinChessMatchButtons[cq.message.reply_to_message.message_id]) {
-                gameURL += "&game=" + joinChessMatchButtons[cq.message.reply_to_message.message_id].id;
-            }
             bot.answerCallbackQuery( cq.id, { url: gameURL }).then();
             queries[idHash] = cq;
         } else {
@@ -193,7 +192,7 @@ bot.on( "callback_query", function( cq ) {
             return;
         }
         if (data[1] === "accept") {
-            bot.answerCallbackQuery( cq.id, {}).then();
+            bot.answerCallbackQuery(cq.id, {}).then();
             let messageContext = {
                 parse_mode: "Markdown"
             };
@@ -211,7 +210,7 @@ bot.on( "callback_query", function( cq ) {
                 second_player: cq.from.id
             };
             request.post(
-                {url:'https://chess.nikl.me/' + chessServerToken + '/newMatch', json: gameData},
+                {url: 'https://chess.nikl.me/' + chessServerToken + '/newMatch', json: gameData},
                 function callback(err, httpResponse, body) {
                     if (err) {
                         return console.error('Post failed:', err);
@@ -219,46 +218,19 @@ bot.on( "callback_query", function( cq ) {
                     console.log('Post successful!  Server responded with:', body);
                     // replace inline button
                     let reply_markup = JSON.stringify({
-                        inline_keyboard: [[{ text: "Share chess match", callback_data: "chess:game:" + body.id}]]
+                        inline_keyboard: [[{text: "Share Chess 🗣", switch_inline_query: "chess"}]]
                     });
-                    bot.sendMessage(messageContext.chat_instance, "**" + cq.from.first_name + `** accepted the challenge. May the force be with you!
-                    
-Share the match below ⬇ to get a "Play" button that takes you directly to it️. Good luck!
-                    `, {parse_mode: "Markdown", reply_markup: reply_markup}).then( (result) => {}, (err) => {console.log(err);});
+                    messageContext.reply_markup = reply_markup;
+                    bot.editMessageText(chessMatchChallengeAccepted.replace("{name}", cq.from.first_name)
+                        , messageContext).then((result) => {
+                    }, (err) => {
+                        console.log(err);
+                    });
                 }
             );
-        } else if (data[1] === "game") {
-            bot.answerCallbackQuery( cq.id, {}).then();
-            joinChessMatchButtons[cq.message.message_id] = data[2];
-            bot.sendGame(
-                cq.message.chat.id,
-                data[0],
-                {
-                    reply_to_message_id: cq.message.message_id,
-                    reply_markup: JSON.stringify(createGameReplyMarkup(data[0]))
-                }
-            ).then(function(result) {
-                // fine
-            }, function(err) {
-                console.log(err);
-            });
         }
     }
 });
-
-function sendChessMatch(result) {
-    console.log(result);
-    console.log("this: ", this);
-    joinChessMatchButtons[this.message_id] = this;
-    bot.sendGame(
-        this.chat_id,
-        "chess",
-        {
-            reply_to_message_id: this.message_id,
-            reply_markup: JSON.stringify(createGameReplyMarkup("chess"))
-        }
-    ).then();
-}
 
 // ToDo: a bot should answer on everything!
 /*bot.on('message', (msg) => {
@@ -275,7 +247,7 @@ bot.on( "inline_query", function(iq) {
         if (!inlineQueryResults.hasOwnProperty(key)) continue;
         results.push(inlineQueryResults[key]);
     }
-    results.push(buildChessInviteIQresult(iq.from));
+    results.push(buildChessInviteIQResult(iq.from));
     let promise = bot.answerInlineQuery(iq.id, results, {switch_pm_text: "Take me to the awesome bot", switch_pm_parameter: "inline_query", cache_time: "60", is_personal: true});
     promise.then(function(result) {
         // fine
@@ -306,7 +278,7 @@ function createGameReplyMarkup(gameID) {
     return reply_markup;
 }
 
-function buildChessInviteIQresult(invitingPlayer) {
+function buildChessInviteIQResult(invitingPlayer) {
     let reply_markup = {
         inline_keyboard: [
             [ { text: "Accept" , callback_data: "chess:accept:" + invitingPlayer.id} ]
