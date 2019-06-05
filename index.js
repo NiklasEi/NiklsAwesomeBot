@@ -86,6 +86,7 @@ bot.setWebHook(`${nowUrl}/bot${token}`).then(function(result) {
 const knownGames = {
     "minesweeper": new Game("minesweeper", "Minesweeper"),
     "sudoku": new Game("sudoku", "Sudoku"),
+    "simon_says": new Game("simon_says", "Simon says"),
     "chess": new Game("chess", "Chess")
 };
 
